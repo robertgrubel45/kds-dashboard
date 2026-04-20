@@ -7,17 +7,23 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const token_hash = requestUrl.searchParams.get("token_hash");
   const type = requestUrl.searchParams.get("type") as EmailOtpType | null;
-  const next = requestUrl.searchParams.get("next") ?? "/auth-test";
+  const next = requestUrl.searchParams.get("next") ?? "/";
+
+  const appUrl = process.env.APP_URL;
+
+  if (!appUrl) {
+    return NextResponse.json(
+      { ok: false, error: "APP_URL is not configured" },
+      { status: 500 }
+    );
+  }
 
   if (!token_hash || !type) {
-    const loginUrl = new URL("/login", requestUrl.origin);
-    loginUrl.searchParams.set("error", "Missing token");
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL("/login?error=Missing+token", appUrl));
   }
 
   const cookieStore = await cookies();
-
-  let response = NextResponse.redirect(new URL(next, requestUrl.origin));
+  let response = NextResponse.redirect(new URL(next, appUrl));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,9 +49,9 @@ export async function GET(request: NextRequest) {
   });
 
   if (error) {
-    const loginUrl = new URL("/login", requestUrl.origin);
-    loginUrl.searchParams.set("error", error.message);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(error.message)}`, appUrl)
+    );
   }
 
   return response;
